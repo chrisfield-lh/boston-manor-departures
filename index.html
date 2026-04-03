@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Boston Manor Live Departures</title>
+  <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --tfl-blue: #003688;
+      --tfl-red: #DC241F;
+      --piccadilly: #003688;
+      --board-bg: #0d0d0d;
+      --row-border: #1e1e1e;
+      --amber: #FFB800;
+      --green: #00e676;
+      --dim: #666666;
+      --text: #f0f0f0;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      background: #111;
+      color: var(--text);
+      font-family: 'Overpass', 'Helvetica Neue', Arial, sans-serif;
+      min-height: 100vh;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ── HEADER ─────────────────────────────────────────────── */
+    header {
+      background: var(--tfl-blue);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .header-left {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+
+    /* TfL Roundel */
+    .roundel { width: 52px; height: 52px; flex-shrink: 0; }
+
+    .header-title h1 {
+      font-size: 1.25rem;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+    .header-title p {
+      font-size: 0.72rem;
+      opacity: 0.75;
+      margin-top: 3px;
+      letter-spacing: 0.04em;
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+    }
+
+    .last-updated {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.8rem;
+      opacity: 0.65;
+    }
+
+    .refresh-btn {
+      background: var(--tfl-red);
+      color: white;
+      border: none;
+      padding: 9px 22px;
+      font-family: 'Overpass', sans-serif;
+      font-size: 0.85rem;
+      font-weight: 700;
+      cursor: pointer;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      transition: opacity 0.15s;
+    }
+    .refresh-btn:hover { opacity: 0.85; }
+    .refresh-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* ── MAIN ───────────────────────────────────────────────── */
+    main {
+      padding: 20px;
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 28px;
+    }
+
+    /* ── SECTION LABELS ─────────────────────────────────────── */
+    .section-label {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .mode-pill {
+      padding: 3px 12px;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      border: 1px solid currentColor;
+    }
+    .mode-pill.tube  { color: #7aabff; border-color: #7aabff; }
+    .mode-pill.bus   { color: #ff8a80; border-color: #ff8a80; }
+
+    .section-name {
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: #666;
+    }
+
+    /* ── BOARDS GRID ────────────────────────────────────────── */
+    .boards-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+      gap: 10px;
+    }
+
+    /* ── BOARD ──────────────────────────────────────────────── */
+    .board {
+      background: var(--board-bg);
+      border: 1px solid #222;
+      overflow: hidden;
+    }
+
+    /* board top strip with coloured accent bar */
+    .board-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      padding: 10px 14px;
+      background: #111;
+      border-bottom: 2px solid var(--tfl-blue);
+      gap: 8px;
+    }
+    .board-head.bus-head { border-bottom-color: var(--tfl-red); }
+
+    .board-head-info { flex: 1; min-width: 0; }
+
+    .board-stop-name {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: white;
+      letter-spacing: 0.02em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .board-sub {
+      font-size: 0.68rem;
+      color: #888;
+      margin-top: 3px;
+      letter-spacing: 0.04em;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .board-time {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.85rem;
+      color: var(--amber);
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    /* ── DEPARTURE ROWS ─────────────────────────────────────── */
+    .row {
+      display: grid;
+      align-items: center;
+      padding: 10px 14px;
+      border-bottom: 1px solid var(--row-border);
+      gap: 10px;
+    }
+    .row:last-child { border-bottom: none; }
+
+    /* tube: [seq] [destination] [time] */
+    .tube-row { grid-template-columns: 18px 1fr 68px; }
+
+    /* bus: [route] [destination] [time] */
+    .bus-row  { grid-template-columns: 42px 1fr 68px; }
+
+    .seq {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.72rem;
+      color: #444;
+      text-align: center;
+    }
+
+    .route {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.95rem;
+      font-weight: 700;
+      color: var(--amber);
+      text-align: center;
+      background: rgba(255,184,0,0.07);
+      padding: 2px 4px;
+      letter-spacing: 0.04em;
+    }
+
+    .dest {
+      font-size: 0.88rem;
+      font-weight: 400;
+      color: #e8e8e8;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .mins {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.88rem;
+      color: var(--amber);
+      text-align: right;
+      white-space: nowrap;
+    }
+    .mins.due { color: var(--green); font-weight: 700; }
+
+    /* ── LOADING / EMPTY / ERROR ────────────────────────────── */
+    .status-row {
+      padding: 22px 14px;
+      text-align: center;
+      font-size: 0.82rem;
+      color: var(--dim);
+    }
+    .status-row.err { color: #ef9a9a; }
+
+    .dot {
+      display: inline-block;
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--amber);
+      margin-right: 8px;
+      animation: blink 1.4s ease-in-out infinite;
+    }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+    /* ── RESPONSIVE ─────────────────────────────────────────── */
+    @media (max-width: 480px) {
+      header { padding: 12px 14px; }
+      main   { padding: 14px; gap: 22px; }
+      .boards-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <!-- TfL Roundel -->
+    <svg class="roundel" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="49" fill="#003688"/>
+      <circle cx="50" cy="50" r="36" fill="white"/>
+      <circle cx="50" cy="50" r="23" fill="#003688"/>
+      <rect x="1" y="37" width="98" height="26" fill="#DC241F"/>
+      <text x="50" y="48" text-anchor="middle" fill="white"
+            font-family="Arial,sans-serif" font-size="9.5" font-weight="bold"
+            letter-spacing="0.5">TRANSPORT FOR</text>
+      <text x="50" y="59" text-anchor="middle" fill="white"
+            font-family="Arial,sans-serif" font-size="9.5" font-weight="bold"
+            letter-spacing="0.5">LONDON</text>
+    </svg>
+    <div class="header-title">
+      <h1>Boston Manor</h1>
+      <p>Live Departures &nbsp;·&nbsp; W7 2AP</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="last-updated" id="last-updated">—</span>
+    <button class="refresh-btn" id="refresh-btn" onclick="refresh()">&#8635; Refresh</button>
+  </div>
+</header>
+
+<main>
+  <!-- TUBE -->
+  <section id="tube-section">
+    <div class="section-label">
+      <span class="mode-pill tube">Tube</span>
+      <span class="section-name">Piccadilly Line &nbsp;·&nbsp; Boston Manor</span>
+    </div>
+    <div class="boards-grid" id="tube-grid">
+      <div class="board">
+        <div class="status-row"><span class="dot"></span>Loading tube arrivals…</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUS -->
+  <section id="bus-section">
+    <div class="section-label">
+      <span class="mode-pill bus">Bus</span>
+      <span class="section-name">Stops near Boston Manor</span>
+    </div>
+    <div class="boards-grid" id="bus-grid">
+      <div class="board">
+        <div class="status-row"><span class="dot"></span>Finding nearby bus stops…</div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script>
+  const API   = 'https://api.tfl.gov.uk';
+  const LAT   = 51.4985;
+  const LON   = -0.3321;
+  const RADIUS = 350; // metres
+
+  // ── helpers ─────────────────────────────────────────────────────────────────
+  function fmtMins(secs) {
+    const m = Math.round(secs / 60);
+    if (m <= 0) return 'Due';
+    return m === 1 ? '1 min' : `${m} mins`;
+  }
+
+  function nowTime() {
+    return new Date().toLocaleTimeString('en-GB', {
+      hour: '2-digit', minute: '2-digit', second: '2-digit'
+    });
+  }
+
+  function cap(s, max = 32) {
+    if (!s) return '—';
+    return s.length > max ? s.slice(0, max - 1) + '…' : s;
+  }
+
+  function minsClass(secs) {
+    return secs <= 45 ? 'mins due' : 'mins';
+  }
+
+  // ── TUBE ────────────────────────────────────────────────────────────────────
+  async function loadTube() {
+    const grid = document.getElementById('tube-grid');
+    grid.innerHTML = '<div class="board"><div class="status-row"><span class="dot"></span>Loading tube arrivals…</div></div>';
+
+    try {
+      // Geo-search for platform-level stop points near Boston Manor station.
+      // Using coordinates instead of name search avoids getting hub/parent stops
+      // which return empty arrivals arrays.
+      // Verified stop ID for Boston Manor (Piccadilly line) via TfL API.
+      // Geo-search does not return results for this station, and the name
+      // search returns 940GZZLUBOS — confirmed to serve live Piccadilly data.
+      const arrRes = await fetch(`${API}/StopPoint/940GZZLUBOS/Arrivals`);
+      if (!arrRes.ok) throw new Error(`Arrivals fetch failed (${arrRes.status})`);
+      const arrivals = (await arrRes.json()).filter(a => a.modeName === 'tube');
+
+      // Group by platform
+      const platforms = {};
+      arrivals.forEach(a => {
+        const key = a.platformName || 'Platform';
+        if (!platforms[key]) platforms[key] = [];
+        platforms[key].push(a);
+      });
+
+      const keys = Object.keys(platforms).sort();
+      grid.innerHTML = '';
+
+      if (keys.length === 0) {
+        grid.innerHTML = '<div class="board"><div class="status-row">No services currently running</div></div>';
+        return;
+      }
+
+      keys.forEach(platform => {
+        const rows = platforms[platform]
+          .sort((a, b) => a.timeToStation - b.timeToStation)
+          .slice(0, 5);
+
+        // Direction display
+        const pl = platform.toLowerCase();
+        let dirLine  = platform;
+        let dirSub   = '';
+        if (pl.includes('eastbound') || pl.includes('east bound')) {
+          dirLine = '← Eastbound';
+          dirSub  = 'Central London · Cockfosters';
+        } else if (pl.includes('westbound') || pl.includes('west bound')) {
+          dirLine = 'Westbound →';
+          dirSub  = 'Heathrow · Uxbridge';
+        } else if (pl.includes('platform 1')) {
+          dirLine = 'Platform 1';
+        } else if (pl.includes('platform 2')) {
+          dirLine = 'Platform 2';
+        }
+
+        const board = document.createElement('div');
+        board.className = 'board';
+
+        const rowsHtml = rows.length === 0
+          ? '<div class="status-row">No upcoming services</div>'
+          : rows.map((a, i) => `
+              <div class="row tube-row">
+                <span class="seq">${i + 1}</span>
+                <span class="dest">${cap(a.destinationName || a.towards, 34)}</span>
+                <span class="${minsClass(a.timeToStation)}">${fmtMins(a.timeToStation)}</span>
+              </div>`).join('');
+
+        board.innerHTML = `
+          <div class="board-head">
+            <div class="board-head-info">
+              <div class="board-stop-name">${dirLine}</div>
+              ${dirSub ? `<div class="board-sub">${dirSub}</div>` : ''}
+            </div>
+            <div class="board-time">${nowTime()}</div>
+          </div>
+          ${rowsHtml}
+        `;
+        grid.appendChild(board);
+      });
+
+    } catch (err) {
+      grid.innerHTML = `<div class="board"><div class="status-row err">⚠ ${err.message}</div></div>`;
+    }
+  }
+
+  // ── BUSES ───────────────────────────────────────────────────────────────────
+  async function loadBuses() {
+    const grid = document.getElementById('bus-grid');
+    grid.innerHTML = '<div class="board"><div class="status-row"><span class="dot"></span>Finding nearby bus stops…</div></div>';
+
+    try {
+      // Hardcoded stop IDs for the two bus stops directly outside
+      // Boston Manor tube station — verified via TfL API:
+      //   490000027A = Stop U (Boston Manor Station)
+      //   490000027B = Stop N (Boston Manor Station)
+      const stops = [
+        { id: '490000027A', commonName: 'Boston Manor Station', indicator: 'Stop U', stopLetter: 'U' },
+        { id: '490000027B', commonName: 'Boston Manor Station', indicator: 'Stop N', stopLetter: 'N' },
+      ];
+
+      // Fetch arrivals for all stops in parallel
+      const results = await Promise.all(stops.map(async stop => {
+        try {
+          const r = await fetch(`${API}/StopPoint/${stop.id}/Arrivals`);
+          if (!r.ok) return { stop, arrivals: [] };
+          const arr = await r.json();
+          return { stop, arrivals: arr.filter(a => a.modeName === 'bus') };
+        } catch {
+          return { stop, arrivals: [] };
+        }
+      }));
+
+      grid.innerHTML = '';
+      let any = false;
+
+      // Sort stops by distance (API usually returns them sorted already)
+      results
+        .filter(r => r.arrivals.length > 0)
+        .forEach(({ stop, arrivals }) => {
+          any = true;
+          const sorted = arrivals
+            .sort((a, b) => a.timeToStation - b.timeToStation)
+            .slice(0, 6);
+
+          const stopName  = cap(stop.commonName || stop.name || 'Bus Stop', 38);
+          const indicator = stop.indicator || stop.stopLetter || '';
+          const toward    = cap(stop.toward || stop.towards || '', 36);
+
+          const board = document.createElement('div');
+          board.className = 'board';
+
+          const rowsHtml = sorted.map(a => `
+            <div class="row bus-row">
+              <span class="route">${a.lineName || a.lineId || '?'}</span>
+              <span class="dest">${cap(a.destinationName || a.towards, 30)}</span>
+              <span class="${minsClass(a.timeToStation)}">${fmtMins(a.timeToStation)}</span>
+            </div>`).join('');
+
+          board.innerHTML = `
+            <div class="board-head bus-head">
+              <div class="board-head-info">
+                <div class="board-stop-name">
+                  ${indicator ? `<span style="background:var(--tfl-red);color:white;padding:1px 6px;font-size:0.72rem;font-weight:700;margin-right:6px;">${indicator}</span>` : ''}
+                  ${stopName}
+                </div>
+                ${toward ? `<div class="board-sub">towards ${toward}</div>` : ''}
+              </div>
+              <div class="board-time">${nowTime()}</div>
+            </div>
+            ${rowsHtml}
+          `;
+          grid.appendChild(board);
+        });
+
+      if (!any) {
+        grid.innerHTML = '<div class="board"><div class="status-row">No bus arrivals at this time</div></div>';
+      }
+
+    } catch (err) {
+      grid.innerHTML = `<div class="board"><div class="status-row err">⚠ ${err.message}</div></div>`;
+    }
+  }
+
+  // ── REFRESH ──────────────────────────────────────────────────────────────────
+  function refresh() {
+    const btn = document.getElementById('refresh-btn');
+    btn.disabled = true;
+    btn.textContent = '↻  Loading…';
+
+    Promise.all([loadTube(), loadBuses()]).finally(() => {
+      document.getElementById('last-updated').textContent = `Updated ${nowTime()}`;
+      btn.disabled = false;
+      btn.innerHTML = '&#8635; Refresh';
+    });
+  }
+
+  // Auto-load on open
+  refresh();
+</script>
+</body>
+</html>
