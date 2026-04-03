@@ -1,0 +1,23 @@
+{
+  "name": "boston-manor-departures",
+  "version": "1.0.0",
+  "description": "A live departure board for **Boston Manor** (Piccadilly line) showing real-time tube and bus arrivals using the [TfL Unified API](https://api.tfl.gov.uk).",
+  "main": "index.js",
+  "scripts": {
+    "test": "playwright test"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/chrisfield-lh/boston-manor-departures.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/chrisfield-lh/boston-manor-departures/issues"
+  },
+  "homepage": "https://github.com/chrisfield-lh/boston-manor-departures#readme",
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  }
+}
