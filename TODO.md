@@ -1,7 +1,7 @@
 # TODO
 
 ## Features
-- [ ] Add map visual showing location of tube and bus stops
+- [x] Add map visual showing location of tube and bus stops
 
 ## Bugs
 
