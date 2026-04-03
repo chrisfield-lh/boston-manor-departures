@@ -363,7 +363,7 @@
   // ── MAP ──────────────────────────────────────────────────────────────────────
   function initMap() {
     const map = L.map('stop-map', { zoomControl: true, scrollWheelZoom: false })
-      .setView([51.4985, -0.3321], 16);
+      .setView([51.4956, -0.3249], 16);
 
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -392,8 +392,12 @@
       return marker;
     }
 
-    // Tube station
-    addStop(51.49849, -0.33213, 'Boston Manor (Tube)', 'tube-label', makeIcon('#7aabff'));
+    // Tube station — fetch coords from TfL
+    fetch(`${API}/StopPoint/940GZZLUBOS`)
+      .then(r => r.json())
+      .then(s => addStop(s.lat, s.lon, 'Boston Manor (Tube)', 'tube-label', makeIcon('#7aabff')))
+      .catch(() => addStop(51.495635, -0.324939, 'Boston Manor (Tube)', 'tube-label', makeIcon('#7aabff')));
+
     // Bus stops — fetched from TfL to get exact coords
     fetch(`${API}/StopPoint/490000027A,490000027B`)
       .then(r => r.json())
