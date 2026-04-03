@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Boston Manor Live Departures</title>
   <link href="https://fonts.googleapis.com/css2?family=Overpass:wght@300;400;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <style>
     :root {
       --tfl-blue: #003688;
@@ -254,6 +256,36 @@
     }
     @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
 
+    /* ── MAP ────────────────────────────────────────────────── */
+    #stop-map {
+      height: 260px;
+      border: 1px solid #222;
+      background: #0d0d0d;
+    }
+
+    /* Dark tile filter */
+    .leaflet-tile { filter: brightness(0.7) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) brightness(0.7); }
+    .leaflet-container { background: #0d0d0d; }
+
+    .map-label {
+      background: transparent;
+      border: none;
+      box-shadow: none;
+    }
+    .map-label-inner {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 0.65rem;
+      font-weight: 700;
+      padding: 2px 6px;
+      white-space: nowrap;
+      margin-top: 4px;
+      background: #111;
+      border: 1px solid #444;
+      color: #fff;
+    }
+    .map-label-inner.tube-label { border-color: #7aabff; color: #7aabff; }
+    .map-label-inner.bus-label  { border-color: #ff8a80; color: #ff8a80; }
+
     /* ── RESPONSIVE ─────────────────────────────────────────── */
     @media (max-width: 480px) {
       header { padding: 12px 14px; }
@@ -291,6 +323,15 @@
 </header>
 
 <main>
+  <!-- MAP -->
+  <section id="map-section">
+    <div class="section-label">
+      <span class="mode-pill tube" style="border-color:#888;color:#888;">Map</span>
+      <span class="section-name">Stop Locations</span>
+    </div>
+    <div id="stop-map"></div>
+  </section>
+
   <!-- TUBE -->
   <section id="tube-section">
     <div class="section-label">
@@ -319,6 +360,56 @@
 </main>
 
 <script>
+  // ── MAP ──────────────────────────────────────────────────────────────────────
+  function initMap() {
+    const map = L.map('stop-map', { zoomControl: true, scrollWheelZoom: false })
+      .setView([51.4985, -0.3321], 16);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+      maxZoom: 19
+    }).addTo(map);
+
+    function makeIcon(color) {
+      return L.divIcon({
+        className: '',
+        html: `<svg width="14" height="14" viewBox="0 0 14 14"><circle cx="7" cy="7" r="6" fill="${color}" stroke="#111" stroke-width="1.5"/></svg>`,
+        iconSize: [14, 14],
+        iconAnchor: [7, 7]
+      });
+    }
+
+    function addStop(lat, lon, label, cssClass, icon) {
+      const marker = L.marker([lat, lon], { icon }).addTo(map);
+      L.marker([lat, lon], {
+        icon: L.divIcon({
+          className: 'map-label',
+          html: `<div class="map-label-inner ${cssClass}">${label}</div>`,
+          iconAnchor: [-4, 7]
+        }),
+        interactive: false
+      }).addTo(map);
+      return marker;
+    }
+
+    // Tube station
+    addStop(51.49849, -0.33213, 'Boston Manor (Tube)', 'tube-label', makeIcon('#7aabff'));
+    // Bus stops — fetched from TfL to get exact coords
+    fetch(`${API}/StopPoint/490000027A,490000027B`)
+      .then(r => r.json())
+      .then(stops => {
+        (Array.isArray(stops) ? stops : [stops]).forEach(s => {
+          const letter = s.stopLetter || s.indicator || '';
+          addStop(s.lat, s.lon, `Stop ${letter} (Bus)`, 'bus-label', makeIcon('#ff8a80'));
+        });
+      })
+      .catch(() => {
+        // Fallback hardcoded coords if API unavailable
+        addStop(51.49820, -0.33260, 'Stop U (Bus)', 'bus-label', makeIcon('#ff8a80'));
+        addStop(51.49870, -0.33180, 'Stop N (Bus)', 'bus-label', makeIcon('#ff8a80'));
+      });
+  }
+
   const API   = 'https://api.tfl.gov.uk';
   const LAT   = 51.4985;
   const LON   = -0.3321;
@@ -521,6 +612,7 @@
   }
 
   // Auto-load on open
+  initMap();
   refresh();
 </script>
 </body>
